@@ -18,5 +18,15 @@ export default {
     { symbol: 'DIB', name: 'Dubai Islamic Bank' },
     { symbol: 'IHC', name: 'Intl Holding Co' },
   ],
+  // Curated stocks priced live via Yahoo (DFM: `.AE` suffix). Yahoo carries DFM
+  // names even though it lacks the ^DFMGI index — so movers are live while the
+  // headline index still falls back to mock.
+  movers: [
+    { symbol: 'EMAAR', name: 'Emaar Properties', y: 'EMAAR.AE' },
+    { symbol: 'DIB', name: 'Dubai Islamic Bank', y: 'DIB.AE' },
+    { symbol: 'DEWA', name: 'Dubai Electricity & Water', y: 'DEWA.AE' },
+    { symbol: 'SALIK', name: 'Salik', y: 'SALIK.AE' },
+    { symbol: 'DU', name: 'du (EITC)', y: 'DU.AE' },
+  ],
   mock: { price: 4180.9, changePct: 0.18, spark: [30, 31, 30, 32, 33, 32, 34, 33, 35, 34, 36, 35, 37] },
 };

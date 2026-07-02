@@ -3,12 +3,24 @@
 > ⚠️ Free-tier limits below reflect the brainstorm snapshot (mid-2026). **Verify current limits
 > before building** — they change frequently.
 
-> **✅ Build status (v1):** Implemented **CoinGecko** (crypto, fully live) + **Yahoo** (equities &
+> **✅ Build status (v2):** Implemented **CoinGecko** (crypto, fully live) + **Yahoo** (equities &
 > gold) with a **mock fallback**. In practice Yahoo returned live data for USA (`^GSPC`), KSA
 > (`^TASI.SR`), Egypt (`^CASE30`), China (`000001.SS`) and Gold (`GC=F`). **UAE (`^DFMGI`) has no
-> Yahoo data and falls back to mock at runtime — confirming the gap below.** StockerAPI / EGXPY /
-> akshare / metals.dev are documented but not yet wired. See `backend/services/prices/` and
-> `backend/markets/`.
+> Yahoo data and falls back to mock at runtime — confirming the index gap below.**
+>
+> **Now also live (v2):**
+> - **Per-market movers** (stocks/ETFs) via Yahoo individual tickers (`yahoo.fetchMovers`, curated
+>   `movers` list per market) — **all 7 markets, including UAE**: Yahoo carries DFM stocks
+>   (`EMAAR.AE`, `DIB.AE`, `DEWA.AE`, …) even though it lacks the `^DFMGI` index. Movers use
+>   close-to-close from the daily series (Yahoo's live `regularMarketPrice` is unreliable for EGX
+>   `.CA` tickers).
+> - **News RSS for Egypt** (Egypt Independent business feed) **and China** (SCMP business feed),
+>   joining USA/Gold/Crypto. KSA & UAE news still mock (outlets 403 a plain fetch).
+>
+> Still not wired: StockerAPI / EGXPY / akshare / metals.dev (all Python-based). We chose a
+> **Node-first path** — the app is zero-dependency Node/`fetch`, and Yahoo's individual-ticker
+> endpoint covered movers for every market without a Python sidecar. See `backend/services/prices/`
+> and `backend/markets/`.
 
 ## The core problem
 There is **no single free, official, well-supported API** that cleanly covers all seven markets.
@@ -52,11 +64,15 @@ Dedicated sources exist for exactly the markets that broke the "global API" plan
 - **Crypto**
   - **CoinGecko** — free, no key, excellent coverage; standard choice. (Binance API is an alternative.)
 
-## The UAE gap (open research item)
-No strong free **price** API surfaced for DFM/ADX. Options, none ideal:
-- Yahoo (spotty), a scraper, or a paid provider.
-- **Note:** UAE is well covered on the **news** axis (Arabian Business, Zawya) — so the market can
-  feel "covered" for news even while price data is the gap. Revisit before/at build time.
+## The UAE gap (narrowed — index only)
+The gap turned out to be **narrower than expected**. Yahoo **does** carry individual **DFM** stocks
+under the `.AE` suffix (`EMAAR.AE`, `DIB.AE`, `DEWA.AE`, `SALIK.AE`, `DU.AE` all return live AED
+prices) — so **UAE movers are live**. What's still missing is only the **headline index** `^DFMGI`,
+which Yahoo doesn't serve; the tile's headline number falls back to mock.
+- Abu Dhabi (**ADX**) tickers (`EAND.AE`, `ADCB.AE`, `FAB.AE`) 404 on Yahoo — DFM works, ADX doesn't.
+- Options for the index: synthesize from constituents, a scraper, or a paid provider (still open).
+- **News:** UAE is well covered editorially (Arabian Business, Zawya) but those feeds 403 a plain
+  fetch, so UAE news is still mock. Needs a working feed URL or a fetch past the block.
 
 ## Routing plan (price backbone)
 ```

@@ -10,6 +10,9 @@ function tag(block, name) {
     .replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"')
+    // Numeric entities (e.g. &#8217; curly apostrophe) — common in WordPress feeds.
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(parseInt(n, 10)))
     .trim();
 }
 

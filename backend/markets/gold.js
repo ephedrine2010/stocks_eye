@@ -16,5 +16,12 @@ export default {
     { symbol: 'IAU', name: 'iShares Gold' },
     { symbol: 'NEM', name: 'Newmont' },
   ],
+  // Gold-linked ETFs & miners priced live via Yahoo (US-listed: no suffix).
+  movers: [
+    { symbol: 'GLD', name: 'SPDR Gold ETF' },
+    { symbol: 'IAU', name: 'iShares Gold' },
+    { symbol: 'NEM', name: 'Newmont' },
+    { symbol: 'GOLD', name: 'Barrick Gold' },
+  ],
   mock: { price: 2338.4, changePct: 0.41, spark: [44, 45, 44, 46, 45, 47, 46, 48, 47, 49, 48, 50, 51] },
 };

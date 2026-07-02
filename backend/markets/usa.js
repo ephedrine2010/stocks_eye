@@ -16,5 +16,13 @@ export default {
     { symbol: 'NVDA', name: 'NVIDIA' },
     { symbol: 'MSFT', name: 'Microsoft' },
   ],
+  // Curated stocks priced live via Yahoo individual tickers (US: no suffix).
+  movers: [
+    { symbol: 'AAPL', name: 'Apple' },
+    { symbol: 'NVDA', name: 'NVIDIA' },
+    { symbol: 'MSFT', name: 'Microsoft' },
+    { symbol: 'TSLA', name: 'Tesla' },
+    { symbol: 'AMZN', name: 'Amazon' },
+  ],
   mock: { price: 5473.2, changePct: 0.62, spark: [40, 42, 41, 44, 43, 46, 45, 48, 47, 50, 52, 51, 54] },
 };

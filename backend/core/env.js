@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 export function loadEnv() {
-  const file = path.join(root, '.env');
+  const file = path.join(root, 'ai_agents_sub.env');
   if (!fs.existsSync(file)) return;
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
     const trimmed = line.trim();

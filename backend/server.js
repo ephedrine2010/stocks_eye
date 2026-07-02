@@ -23,7 +23,7 @@ app.get(/^(?!\/api).*/, (req, res) => {
 });
 
 app.listen(PORT, () => {
-  const ai = process.env.ANTHROPIC_API_KEY ? 'live (Claude)' : 'mock';
+  const ai = process.env.DEEPSEEK_API_KEY ? 'live (DeepSeek)' : 'mock';
   console.log(`\n  👁  Stocks Eye running →  http://localhost:${PORT}`);
   console.log(`      Crypto: live (CoinGecko) · Equities/Gold: Yahoo→mock · News: RSS→mock · AI: ${ai}\n`);
 });

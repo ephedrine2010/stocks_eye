@@ -4,12 +4,14 @@
 
 import * as coingecko from '../services/prices/coingecko.js';
 import * as yahoo from '../services/prices/yahoo.js';
+import * as sahmk from '../services/prices/sahmk.js';
 import * as mock from '../services/prices/mock.js';
 
 // market.priceSource -> ordered list of adapters to try.
 const CHAINS = {
   coingecko: [coingecko, yahoo, mock],
   yahoo: [yahoo, mock],
+  sahmk: [sahmk, yahoo, mock], // KSA index: official API -> Yahoo (^TASI.SR) -> mock
   mock: [mock],
 };
 

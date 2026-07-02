@@ -41,10 +41,11 @@ into the payload the UI renders. The app never knows which source answered.
 ```
 GET /api/dashboard
   → services/dashboard.js  (aggregator: the ONLY place sources are combined)
-      ├─ core/router.js        market → price adapter (+ fallback chain)
+      ├─ core/router.js        market → headline price adapter (+ fallback chain)
       │    └─ services/prices/{coingecko,yahoo,mock}.js
+      ├─ (movers)              per-market stocks/ETFs: coingecko.fetchCoins / yahoo.fetchMovers → mock
       ├─ services/news/index.js   RSS → mock fallback
-      ├─ services/ai/index.js     per-market take + roll-up brief (mock / guarded Claude)
+      ├─ services/ai/index.js     per-market take + roll-up brief (mock / DeepSeek when keyed)
       └─ core/{marketHours,currency,cache,normalizer}.js
   → { markets[], watchlist[], brief, as_of }
 ```
@@ -56,20 +57,20 @@ or hours logic, update BOTH files.**
 ## Directory map
 ```
 backend/
-  server.js                  Express app (API + static frontend + .env loader)
+  server.js                  Express app (API + static frontend + env loader)
   core/
     cache.js                 in-memory TTL cache (get/set/wrap)
     marketHours.js           schedule + tz → open/closed + local time
     currency.js              USD normalization (STATIC approx rates — TODO: live FX)
     normalizer.js            makeQuote / makeNews / makeTake — the internal shapes
     router.js                market → price adapter chain
-    env.js                   zero-dep .env loader
+    env.js                   zero-dep env loader (reads ai_agents_sub.env)
   markets/                   ONE config file per market + index.js registry
     usa · ksa · uae · egypt · china · gold · crypto
   services/
     prices/  coingecko.js(live)  yahoo.js(live)  mock.js(guaranteed fallback)
     news/    rss.js(fetch+parse)  index.js(rss→mock)
-    ai/      index.js(getTake + getBrief; mock default, Claude when keyed)
+    ai/      index.js(getTake + getBrief; mock default, DeepSeek when keyed)
     mock/    marketData.js  (sample movers/news/advice/watchlist/brief)
     dashboard.js             aggregator
   routes/api.js              /api/dashboard · /api/markets · /api/brief
@@ -91,33 +92,52 @@ frontend/
   guaranteed final fallback so a tile is never blank.
 
 ## Data sources (current status)
-| Market | Price source | Live? |
+| Market | Headline index (price) | Live? |
 |--------|-------------|-------|
 | Crypto | CoinGecko (no key) | ✅ fully live, top 5 coins, 24/7 |
 | USA / China / KSA / Egypt / Gold | Yahoo (unofficial, no key) | ✅ live in practice |
-| UAE | Yahoo → **mock** | ⚠️ Yahoo lacks `^DFMGI`; falls back to mock (known gap) |
+| UAE | Yahoo → **mock** | ⚠️ Yahoo lacks the `^DFMGI` index; headline falls back to mock (known gap) |
 
-- **News**: RSS where a feed is configured (USA=CNBC, Crypto=CoinDesk, Gold=Kitco), else the mock
-  dataset. RSS items default to **neutral** sentiment (FinBERT wiring is a TODO).
-- **AI**: mock by default. Set `ANTHROPIC_API_KEY` in `.env` and `npm i @anthropic-ai/sdk` to use
-  Claude (`claude-opus-4-8`) with the web-search tool, grounded on the snapshot. Any AI failure
-  falls back to mock — the app never breaks on the AI layer.
+- **Movers** (per-market stocks/ETFs, from each config's curated `movers` list): **live for all 7
+  markets** — Crypto via CoinGecko, the rest via Yahoo individual tickers (`yahoo.fetchMovers`).
+  **UAE movers ARE live** even though its index is mock — Yahoo carries DFM stocks (`EMAAR.AE`, `DIB.AE`,
+  …) despite lacking `^DFMGI`. Movers use **close-to-close** from the daily series (see Gotchas).
+- **News**: RSS where a feed is configured (USA=CNBC, Egypt=Egypt Independent, China=SCMP,
+  Crypto=CoinDesk, Gold=Kitco), else the mock dataset (**KSA, UAE** — outlets 403 a plain fetch,
+  still open). RSS items default to **neutral** sentiment (FinBERT wiring is a TODO).
+- **AI**: mock by default. Set `DEEPSEEK_API_KEY` in `ai_agents_sub.env` to use DeepSeek
+  (`deepseek-chat`) via its OpenAI-compatible HTTP API — no SDK, uses the built-in `fetch`.
+  DeepSeek has no web-search tool, so the model grounds ONLY on the snapshot numbers. Any AI
+  failure falls back to mock — the app never breaks on the AI layer. **Cost control:** only the
+  Morning Brief calls the model (cached 24h); per-market Takes stay on mock. Toggle via
+  `LIVE = { takes, brief }` in `services/ai/index.js`. (Claude was the prior provider, now stopped.)
 
 ## Gotchas / conventions to preserve
-- **Yahoo change % must be daily.** `meta.chartPreviousClose` is range-relative (a ~1-month move on
-  `range=1mo`). Use the prior-day close: prefer `meta.previousClose`, else the second-to-last close
-  in the series. See `services/prices/yahoo.js`.
-- **Caching TTLs** live in each service (`cache.wrap`): quotes 60s, news 15m, AI 30m. Respect free-tier
-  caps — don't drop these without reason.
+- **Yahoo change % must be daily.** For the headline **index** quote, `meta.chartPreviousClose` is
+  range-relative (a ~1-month move on `range=1mo`) — use the prior-day close: prefer
+  `meta.previousClose`, else the second-to-last close in the series.
+- **Movers use close-to-close, not the live price.** `yahoo.fetchMovers` computes BOTH price and
+  change from the last two valid daily closes — deliberately NOT `regularMarketPrice`. Yahoo's live
+  price is unreliable for some EGX (`.CA`) tickers (it sits on a different scale than the close
+  series and, if mixed with a close, fabricates a huge fake daily move). Tradeoff: movers reflect the
+  last completed session, not live intraday. See `services/prices/yahoo.js`.
+- **RSS parser decodes numeric entities** (`&#8217;` etc.), not just named ones — WordPress feeds
+  (e.g. Egypt Independent) rely on it. See `services/news/rss.js`.
+- **Caching TTLs** live in each service: quotes 60s, news 15m, AI Take 30m (mock), AI Brief 24h.
+  The Brief caches ONLY on a successful live call — never the mock fallback — so one failure doesn't
+  lock mock for the whole day. Respect free-tier caps — don't drop these without reason.
 - **Crypto never closes** — its schedule uses `always: true`. Gold uses `commodity: true` (24h Mon–Fri).
   These flags drive both the status logic and the tile clock label.
 - **FX is static/approximate** in `core/currency.js` — fine for display; swap for a live source later.
 - **Not investment advice** — the AI/news framing is deliberate. Keep the disclaimers in the UI.
 
 ## Where to extend next (open items)
-- A real **UAE price source** (the one genuine gap).
+- A real **UAE headline-index source** — movers are already live; only the `^DFMGI` index is mock.
+- **KSA / UAE news feeds** — Egypt & China are now wired; KSA/UAE outlets 403 a plain fetch, so they
+  need a working feed URL or a fetch that gets past the block.
 - **Live FX** in `core/currency.js`.
-- **FinBERT** sentiment for RSS headlines (`services/news`).
-- **Real Anthropic** AI is already wired behind the key — verify against the current model id +
-  web-search tool version in the `claude-api` skill before relying on it.
+- **FinBERT** sentiment for RSS headlines (`services/news`) — all live RSS is still neutral.
+- **DeepSeek** AI is wired behind `DEEPSEEK_API_KEY` (Morning Brief only). Possible next steps:
+  enable per-market Takes (`LIVE.takes = true`), or add a web-search-capable provider back for
+  breaking-news grounding (DeepSeek can't search the web).
 - Tests.

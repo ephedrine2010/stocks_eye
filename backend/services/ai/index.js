@@ -1,34 +1,66 @@
 // AI advice service — per-market "AI Take" + roll-up "Morning Brief".
 //
 // Default (keyless): returns grounded mock text from the mock dataset.
-// With ANTHROPIC_API_KEY set (and `npm i @anthropic-ai/sdk`): calls Claude
-// (claude-opus-4-8) with the web-search tool, grounded on the provided snapshot.
+// With DEEPSEEK_API_KEY set: calls DeepSeek (deepseek-chat) via its
+// OpenAI-compatible HTTP API, grounded on the provided snapshot. DeepSeek has
+// no web-search tool, so the model reasons ONLY over the snapshot numbers.
 // Any failure falls back to mock — the app never breaks on the AI layer.
 //
-// Design (see docs/03): ONE call per market, grounded on real numbers, cited,
-// never inventing prices. This module keeps the two AI calls separated.
+// Provider note: uses Node's built-in global `fetch` — no SDK dependency.
+// (Claude was the previous provider; it's stopped. To re-add it, restore a
+//  branch here keyed on ANTHROPIC_API_KEY.)
 
 import { makeTake } from '../../core/normalizer.js';
 import { ADVICE, BRIEF } from '../mock/marketData.js';
-import { wrap } from '../../core/cache.js';
+import { wrap, get as cacheGet, set as cacheSet } from '../../core/cache.js';
 
-const MODEL = 'claude-opus-4-8';
-const hasKey = () => !!process.env.ANTHROPIC_API_KEY;
+const API_URL = 'https://api.deepseek.com/chat/completions';
+const MODEL = 'deepseek-chat';
+const hasKey = () => !!process.env.DEEPSEEK_API_KEY;
 
-let _client;
-async function client() {
-  if (_client) return _client;
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  _client = new Anthropic();
-  return _client;
-}
+// --- Cost control -------------------------------------------------------
+// Which layers actually call the live model, and how long results are cached.
+// Current choice: "Morning Brief only, once a day". Per-market takes stay on
+// mock (no spend) for now. Flip `takes` back to true to re-enable live takes.
+const LIVE = { takes: false, brief: true };
+const TAKE_TTL = 30 * 60_000;         // 30 min (mock — cheap)
+const BRIEF_TTL = 24 * 60 * 60_000;   // once a day — the brief is a daily read
 
 const SYSTEM = `You are a market analyst for a dashboard called Stocks Eye.
 Rules:
 - Use ONLY the numbers provided in the snapshot for prices and levels. NEVER invent figures.
-- Use web search only for context and breaking news, and cite sources.
+- You have NO live web access. Do not fabricate news, URLs, or citations. Leave citations empty
+  unless you are naming a well-known general source of context.
 - Output is informational, NOT investment advice.
-- Reply with a compact JSON object: {"sentiment":"bull|bear|neut","text":"1-2 sentences","citations":["Source"]}.`;
+- Reply with ONLY a compact JSON object, no prose before or after.`;
+
+// One place that talks to DeepSeek. Returns the raw message content (a JSON
+// string, since we request json_object mode). Throws on any non-2xx.
+async function deepseek(system, user, maxTokens) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`DeepSeek ${res.status}: ${body.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content || '';
+}
 
 function parseJson(text) {
   const cleaned = String(text).replace(/```json|```/g, '').trim();
@@ -46,32 +78,21 @@ function mockTake(marketId) {
 }
 
 async function realTake(market, snapshot) {
-  const c = await client();
-  const res = await c.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    thinking: { type: 'adaptive' },
-    output_config: { effort: 'high' },
-    tools: [{ type: 'web_search_20260209', name: 'web_search' }],
-    system: SYSTEM,
-    messages: [{
-      role: 'user',
-      content: `Market snapshot (ground truth):\n${JSON.stringify(snapshot)}\n\nWrite today's AI Take for ${market.name}.`,
-    }],
-  });
-  const textBlock = [...res.content].reverse().find((b) => b.type === 'text');
-  const obj = parseJson(textBlock?.text || '');
+  const user = `Market snapshot (ground truth):\n${JSON.stringify(snapshot)}\n\n`
+    + `Write today's AI Take for ${market.name}. Reply as JSON: `
+    + `{"sentiment":"bull|bear|neut","text":"1-2 sentences","citations":["Source"]}.`;
+  const obj = parseJson(await deepseek(SYSTEM, user, 1024));
   return makeTake({
     sentiment: ['bull', 'bear', 'neut'].includes(obj.sentiment) ? obj.sentiment : 'neut',
     text: obj.text || '',
     citations: Array.isArray(obj.citations) ? obj.citations : [],
-    source: 'claude-opus-4-8',
+    source: MODEL,
   });
 }
 
 export async function getTake(market, snapshot) {
-  return wrap(`take:${market.id}`, 30 * 60_000, async () => {
-    if (!hasKey()) return mockTake(market.id);
+  return wrap(`take:${market.id}`, TAKE_TTL, async () => {
+    if (!LIVE.takes || !hasKey()) return mockTake(market.id);
     try { return await realTake(market, snapshot); }
     catch { return mockTake(market.id); }
   });
@@ -80,29 +101,24 @@ export async function getTake(market, snapshot) {
 // ---- Roll-up Morning Brief ----------------------------------------------
 
 export async function getBrief(markets, snapshots) {
-  return wrap('brief', 30 * 60_000, async () => {
-    if (!hasKey()) return { ...BRIEF, source: 'mock' };
-    try {
-      const c = await client();
-      const res = await c.messages.create({
-        model: MODEL,
-        max_tokens: 1600,
-        thinking: { type: 'adaptive' },
-        output_config: { effort: 'high' },
-        tools: [{ type: 'web_search_20260209', name: 'web_search' }],
-        system: `${SYSTEM}\nFor the brief, reply with {"lead":"...","lines":[{"id","name","s","text"}],"hint":"...","citations":[...]}`,
-        messages: [{
-          role: 'user',
-          content: `Snapshots (ground truth):\n${JSON.stringify(snapshots)}\n\nWrite today's roll-up Morning Brief across all markets.`,
-        }],
-      });
-      const textBlock = [...res.content].reverse().find((b) => b.type === 'text');
-      const obj = parseJson(textBlock?.text || '');
-      return { ...obj, source: 'claude-opus-4-8' };
-    } catch {
-      return { ...BRIEF, source: 'mock' };
-    }
-  });
+  // Serve a cached brief if we have one. We ONLY cache successful live results
+  // (below) — never the mock fallback — so a transient failure doesn't lock the
+  // brief to mock for the whole TTL. A failed load simply retries next time.
+  const cached = cacheGet('brief');
+  if (cached !== undefined) return cached;
+
+  if (!LIVE.brief || !hasKey()) return { ...BRIEF, source: 'mock' };
+  try {
+    const user = `Snapshots (ground truth):\n${JSON.stringify(snapshots)}\n\n`
+      + `Write today's roll-up Morning Brief across all markets. Reply as JSON: `
+      + `{"lead":"...","lines":[{"id":"","name":"","s":"bull|bear|neut","text":""}],"hint":"...","citations":[]}.`;
+    const obj = parseJson(await deepseek(SYSTEM, user, 4000));
+    const brief = { ...obj, source: MODEL };
+    return cacheSet('brief', brief, BRIEF_TTL); // cache ONLY on success
+  } catch (err) {
+    console.error('[ai] Morning Brief live call failed, using mock:', err?.message || err);
+    return { ...BRIEF, source: 'mock' };
+  }
 }
 
 export default { getTake, getBrief };

@@ -8,6 +8,8 @@ import { isOpen } from '../core/marketHours.js';
 import { getNews } from './news/index.js';
 import { getTake, getBrief } from './ai/index.js';
 import * as coingecko from './prices/coingecko.js';
+import * as yahoo from './prices/yahoo.js';
+import * as sahmk from './prices/sahmk.js';
 import { MOVERS, WATCHLIST } from './mock/marketData.js';
 
 function mockMovers(id) {
@@ -18,6 +20,18 @@ async function getMovers(market) {
   if (market.coins) {
     try { return await coingecko.fetchCoins(market); }
     catch { return mockMovers(market.id); }
+  }
+  // Real top gainers/losers where a market opts in (KSA) — falls through to the
+  // curated Yahoo list, then mock, if SAHMK is unavailable or over quota.
+  if (market.moversSource === 'sahmk') {
+    const live = await sahmk.fetchMovers(market);
+    if (live.length) return live;
+  }
+  if (market.movers?.length) {
+    try {
+      const live = await yahoo.fetchMovers(market);
+      if (live.length) return live;
+    } catch { /* fall through to mock */ }
   }
   return mockMovers(market.id);
 }
