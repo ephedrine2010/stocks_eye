@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stocks Eye — Multi-Market Monitor</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👁️</text></svg>" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="eye">👁️</div>
+        <div><h1>Stocks Eye</h1><span>Multi-Market Monitor</span></div>
+      </div>
+      <div class="spacer"></div>
+      <span class="badge" id="mode">loading…</span>
+      <div class="clock"><b id="utc">—</b>Coordinated Universal Time</div>
+    </div>
+
+    <div id="brief"></div>
+
+    <p class="lbl">Markets — live status</p>
+    <div class="tiles" id="tiles"></div>
+
+    <div class="grid">
+      <div class="card" id="detail"></div>
+      <div class="card">
+        <p class="lbl" style="margin-bottom:14px">Watchlist · normalized to USD</p>
+        <div class="wl" id="watchlist"></div>
+        <p class="note">Native currency shown with USD conversion beside it. FX rates are approximate
+          (static) until a live FX source is wired.</p>
+      </div>
+    </div>
+
+    <div class="src">
+      <span class="chip" style="margin-right:4px">Data routing:</span>
+      <span class="srcpill">🇺🇸 USA → Yahoo</span>
+      <span class="srcpill">🇨🇳 China → Yahoo/akshare</span>
+      <span class="srcpill">🇸🇦 KSA → Yahoo/StockerAPI</span>
+      <span class="srcpill">🇪🇬 Egypt → Yahoo/EGXPY</span>
+      <span class="srcpill gap">🇦🇪 UAE → open gap ⚠</span>
+      <span class="srcpill">🥇 Gold → Yahoo/metals.dev</span>
+      <span class="srcpill">🪙 Crypto → CoinGecko (live)</span>
+    </div>
+    <p class="note" id="footnote">Trading hours &amp; weekends are per-market: KSA &amp; Egypt trade
+      Sun–Thu; USA, China &amp; UAE trade Mon–Fri, China with a midday break. Gold ~24h Mon–Fri; Crypto
+      is 24/7/365. Open/closed is computed live from your device clock.</p>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "stocks-eye",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-market monitoring dashboard — USA, KSA, UAE, Egypt, China, Gold, Crypto",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
