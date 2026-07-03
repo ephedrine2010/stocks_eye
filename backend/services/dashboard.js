@@ -36,11 +36,21 @@ async function getMovers(market) {
   return mockMovers(market.id);
 }
 
+// Heavyweight "leading stocks" for markets that curate a `leaders` list (KSA, USA
+// today) — priced live + dividends via Yahoo. [] for markets without one, so the UI
+// simply omits the section.
+async function getLeaders(market) {
+  if (!market.leaders?.length) return [];
+  try { return await yahoo.fetchLeaders(market); }
+  catch { return []; }
+}
+
 async function buildMarket(market) {
-  const [quote, movers, news] = await Promise.all([
+  const [quote, movers, news, leaders] = await Promise.all([
     getQuote(market),
     getMovers(market),
     getNews(market),
+    getLeaders(market),
   ]);
   const open = isOpen(market.schedule);
   const snapshot = {
@@ -69,6 +79,7 @@ async function buildMarket(market) {
     quote,
     spark: quote.spark,
     movers,
+    leaders,
     news,
     take,
   };

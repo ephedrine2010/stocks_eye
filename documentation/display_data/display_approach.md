@@ -111,3 +111,55 @@ Requested feature: let the user pick tickers to follow, e.g. via a dialog. Fits 
 3. Add leading list to the KSA config (table above); reuse `yahoo.fetchMovers`.
 4. Once liked, curate heavyweight lists for the other 6 markets.
 5. **Later, separately:** the user-selectable follow list (localStorage + picker dialog).
+
+---
+
+## Addendum (2026-07-03): dividends + news-source decisions
+
+### ✅ Implemented — leading stocks + dividends (USA + KSA)
+Prototype shipped for **USA and KSA**: the detail view now renders a **Leading stocks** table
+(header → 1M chart → **leading** → take/movers/news) with a live **dividend yield** column.
+- Backend: `leaders` list in each config; `yahoo.fetchLeaders` prices close-to-close AND attaches
+  `{ yield, annual, exDate, frequency }` from one `range=2y&events=div` fetch; aggregator exposes
+  `leaders[]` (empty → section omitted for the other 5 markets).
+- Frontend: `leadersBlock` in `ui/detail.js` + `.leaders`/`.ld` CSS. Non-payers (Ma'aden, AMZN)
+  show a muted "—", not a fake 0%. News + AI-Take rendering left untouched (open question 1 unresolved).
+- Verified live 8/8 for both markets (Aramco 5.1%, SABIC 5.7%, JPM 1.8%, XOM 3.0%, …).
+- Not yet done: 1M chart is still the index sparkline we already had; heavyweight lists for the
+  other 5 markets; the currency-normalization sub-decision (native vs USD) — kept **native** for now.
+
+
+
+### Dividends — LIVE for all 5 equity markets (verified)
+Dividends earn a place under the "match display to live data" rule: they come from the
+**same no-key Yahoo endpoint we already call** for the change/chart — just add `&events=div`:
+```
+https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=2y&interval=1d&events=div
+```
+Each event = **ex-dividend date (Unix ts) + per-share amount in the listing currency**. Verified
+live for real config tickers in every equity market:
+
+| Market | Dividends? | Currency | Notes |
+|---|---|---|---|
+| USA | ✅ | USD | quarterly |
+| KSA | ✅ | SAR | `2222.SR`, `1120.SR` etc. |
+| China | ✅ | CNY | `.SS` / `.SZ` — mostly annual + interim |
+| Egypt | ✅ | EGP | `.CA` |
+| UAE | ✅ | AED | `.AE` movers carry dividends **even though `^DFMGI` index is mock** |
+| Gold | ⚠️ | — | commodity/ETF (GLD) pays nothing; miner stocks do — depends on movers list |
+| Crypto | ❌ | — | CoinGecko, no dividends (staking yield is a different concept, out of scope) |
+
+Derivable fields: **yield % (TTM dividends ÷ price — currency-neutral), annual dividend,
+last/ex-date, frequency (from event spacing), history (bar chart)**. Implementation: a single
+`fetchDividends(ticker)` in `services/prices/yahoo.js`, riding along the chart fetch (near-free,
+one file). Non-payers / Crypto → **hide the field** per the core rule. Open sub-decision: show the
+per-share amount in **native currency** (simplest, matches showing TASI in SAR) or normalize to USD
+via `core/currency.js` — leading with **yield %** sidesteps this for the headline number.
+
+### News sourcing — Telegram/Twitter PARKED
+- **Twitter/X:** rejected — reading now needs the paid API (~$100/mo), clashes with the zero-cost,
+  no-key design.
+- **Telegram:** viable + free in principle (a GramJS user-client can read public channels → a
+  `services/news/telegram.js` adapter). **Parked for now** — target channels are image-heavy and
+  would force OCR/vision work (DeepSeek has no vision) out of proportion to the payoff. **Waiting for
+  a clean text-first source.** KSA/UAE news stays mock → hidden until then.

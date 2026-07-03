@@ -108,6 +108,20 @@ body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--ui);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .mv .p{color:var(--ink-2);} .mv .c{width:64px;text-align:right;font-weight:600;}
 
+/* Leading stocks */
+.leaders{display:flex;flex-direction:column;margin-top:6px;}
+.ld{display:grid;grid-template-columns:58px 1fr 80px 60px 74px;gap:10px;align-items:baseline;
+  font-size:13px;padding:6px 0;border-bottom:1px solid var(--line);}
+.ld:last-child{border-bottom:none;}
+.ld .t{font-weight:600;}
+.ld .n{color:var(--ink-3);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ld .p{text-align:right;color:var(--ink-2);}
+.ld .c{text-align:right;font-weight:600;}
+.ld .dv{text-align:right;color:var(--accent);font-weight:600;cursor:default;}
+.ld .dv.none{color:var(--ink-3);font-weight:400;}
+.ld.lh,.ld.lh .t,.ld.lh .p,.ld.lh .c,.ld.lh .dv{font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-3);font-weight:600;}
+
 /* News */
 .news{display:flex;flex-direction:column;gap:2px;margin-top:10px;}
 .ni{display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);}

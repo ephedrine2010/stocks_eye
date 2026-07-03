@@ -102,6 +102,13 @@ frontend/
   markets** — Crypto via CoinGecko, the rest via Yahoo individual tickers (`yahoo.fetchMovers`).
   **UAE movers ARE live** even though its index is mock — Yahoo carries DFM stocks (`EMAAR.AE`, `DIB.AE`,
   …) despite lacking `^DFMGI`. Movers use **close-to-close** from the daily series (see Gotchas).
+- **Leading stocks + dividends** (`yahoo.fetchLeaders`): the heavyweight bellwethers from a config's
+  curated `leaders` list (weight-ranked, not %-ranked — a *second view* of the same idea as movers).
+  Wired for **USA + KSA** so far; other markets omit the section until a list is added. Each ticker is
+  priced close-to-close AND carries a **dividend summary** `{ yield, annual, exDate, frequency }` from
+  the SAME fetch (`range=2y&events=div`). Yield = TTM payout ÷ price (currency-neutral). Non-payers
+  return `dividend: null` → the UI hides the field (per `documentation/display_data/display_approach.md`).
+  Dividends are live for all 5 equity markets (only USA/KSA have `leaders` lists wired today).
 - **News**: RSS where a feed is configured (USA=CNBC, Egypt=Egypt Independent, China=SCMP,
   Crypto=CoinDesk, Gold=Kitco), else the mock dataset (**KSA, UAE** — outlets 403 a plain fetch,
   still open). RSS items default to **neutral** sentiment (FinBERT wiring is a TODO).

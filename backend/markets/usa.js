@@ -24,5 +24,18 @@ export default {
     { symbol: 'TSLA', name: 'Tesla' },
     { symbol: 'AMZN', name: 'Amazon' },
   ],
+  // Megacap bellwethers that drive the S&P 500, ranked by weight. Priced live +
+  // dividends via Yahoo (yahoo.fetchLeaders). A mix of payers and non-payers on
+  // purpose — AMZN/GOOGL* show no yield (hidden, not "0%"), demonstrating the rule.
+  leaders: [
+    { symbol: 'AAPL', name: 'Apple' },
+    { symbol: 'MSFT', name: 'Microsoft' },
+    { symbol: 'NVDA', name: 'NVIDIA' },
+    { symbol: 'AMZN', name: 'Amazon' },
+    { symbol: 'META', name: 'Meta Platforms' },
+    { symbol: 'GOOGL', name: 'Alphabet' },
+    { symbol: 'JPM', name: 'JPMorgan Chase' },
+    { symbol: 'XOM', name: 'Exxon Mobil' },
+  ],
   mock: { price: 5473.2, changePct: 0.62, spark: [40, 42, 41, 44, 43, 46, 45, 48, 47, 50, 52, 51, 54] },
 };

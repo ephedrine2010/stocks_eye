@@ -18,6 +18,42 @@ function takeBlock(name, take) {
   </div>`;
 }
 
+// Dividend yield cell. Present → gold yield % with a tooltip; genuine non-payer →
+// muted "—" (a real zero, not missing data, so it stays — unlike hidden mock fields).
+function dvCell(d) {
+  if (!d) return '<span class="dv none" title="No dividend">—</span>';
+  const tip = [
+    `${d.yield.toFixed(2)}% yield`,
+    d.frequency,
+    `annual ${fmt(d.annual)}`,
+    d.exDate ? `ex-div ${d.exDate}` : '',
+  ].filter(Boolean).join(' · ');
+  return `<span class="dv" title="${esc(tip)}">${d.yield.toFixed(2)}%</span>`;
+}
+
+// Leading (heavyweight) stocks — the bellwethers that drive the index, weight-ranked.
+// Only rendered for markets that curate a `leaders` list (KSA, USA today); others omit
+// the whole section. Prices are in the market's native currency (shown in the label).
+function leadersBlock(m) {
+  const list = m.leaders || [];
+  if (!list.length) return '';
+  const rows = list.map((s) => `
+    <div class="ld">
+      <span class="t mono">${esc(s.symbol)}</span>
+      <span class="n">${esc(s.name)}</span>
+      <span class="p mono">${fmt(s.price)}</span>
+      <span class="c mono ${cls(s.changePct)}">${pct(s.changePct)}</span>
+      ${dvCell(s.dividend)}
+    </div>`).join('');
+  return `
+    <p class="lbl" style="margin:16px 0 2px">Leading stocks · ${esc(m.currency)}</p>
+    <div class="leaders">
+      <div class="ld lh"><span class="t">Ticker</span><span class="n">Company</span>
+        <span class="p">Price</span><span class="c">Chg</span><span class="dv">Div yield</span></div>
+      ${rows}
+    </div>`;
+}
+
 function newsRow(a) {
   const meta = [SENT[a.sentiment]?.l || 'Neutral', a.source, a.published ? `${a.published} ago` : '']
     .filter(Boolean).join(' · ');
@@ -48,6 +84,7 @@ export function renderDetail(el, m) {
         <div class="mono ${cls(changePct)}" style="font-size:13px">${sgn(changePct)}</div></div>
     </div>
     ${detailChart(m.spark, changePct)}
+    ${leadersBlock(m)}
     ${takeBlock(m.name, m.take)}
     <p class="lbl" style="margin:14px 0 2px">Top movers · session</p>
     <div class="movers">${movers}</div>
